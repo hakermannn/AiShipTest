@@ -32,13 +32,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+using Content.Shared._CorvaxNext.Silicons.Borgs;
 using Content.Shared.ActionBlocker;
 using Content.Shared.Actions;
 using Content.Shared.Administration.Managers;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Database;
-using Content.Shared.Doors.Systems;
 using Content.Shared.DoAfter;
+using Content.Shared.Doors.Systems;
 using Content.Shared.Electrocution;
 using Content.Shared.Intellicard;
 using Content.Shared.Interaction;
@@ -49,7 +50,9 @@ using Content.Shared.Movement.Systems;
 using Content.Shared.Popups;
 using Content.Shared.Power;
 using Content.Shared.Power.EntitySystems;
+using Content.Shared.Shuttles.Components;
 using Content.Shared.StationAi;
+using Content.Shared.Tag;
 using Content.Shared.Verbs;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Systems;
@@ -61,9 +64,8 @@ using Robust.Shared.Physics;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
 using Robust.Shared.Timing;
-using System.Diagnostics.CodeAnalysis;
 using Robust.Shared.Utility;
-using Content.Shared._CorvaxNext.Silicons.Borgs;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Content.Shared.Silicons.StationAi;
 
@@ -227,7 +229,7 @@ public abstract partial class SharedStationAiSystem : EntitySystem
 
         lock (_vision)
         {
-            if (_vision.IsAccessible((targetXform.GridUid.Value, broadphase, grid), targetTile, fastPath: true))
+            if (_vision.IsAccessible((targetXform.GridUid.Value, broadphase, grid), targetTile, fastPath: true) || TryComp<SharedShuttleConsoleComponent>(args.Target, out SharedShuttleConsoleComponent? comp))
             {
                 args.Result = BoundUserInterfaceRangeResult.Pass;
             }

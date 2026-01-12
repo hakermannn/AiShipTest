@@ -361,6 +361,11 @@
         whitelist:
           components:
           - ShuttleDestinationCoordinates
+      airemote:
+        name: AiRemote
+        whitelist:
+          components:
+          - AiRemoteBrain
   - type: ContainerContainer
     containers:
       board: !type:Container

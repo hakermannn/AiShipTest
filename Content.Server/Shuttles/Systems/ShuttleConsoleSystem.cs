@@ -113,30 +113,37 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+using Content.Goobstation.Shared.SlotMachine;
 using Content.Server.Power.EntitySystems;
 using Content.Server.Shuttles.Components;
 using Content.Server.Shuttles.Events;
 using Content.Server.Station.Systems;
+using Content.Shared._CorvaxNext.Silicons.Borgs.Components;
 using Content.Shared._NF.Shuttles.Events;
 using Content.Shared.ActionBlocker;
 using Content.Shared.Alert;
+using Content.Shared.Containers.ItemSlots;
+using Content.Shared.Interaction;
+using Content.Shared.Movement.Systems;
 using Content.Shared.Popups;
+using Content.Shared.Power;
 using Content.Shared.Shuttles.BUIStates;
 using Content.Shared.Shuttles.Components;
 using Content.Shared.Shuttles.Events;
 using Content.Shared.Shuttles.Systems;
-using Content.Shared.Tag;
-using Content.Shared.Movement.Systems;
-using Content.Shared.Power;
 using Content.Shared.Shuttles.UI.MapObjects;
+using Content.Shared.Silicons.StationAi;
+using Content.Shared.StationAi;
+using Content.Shared.Tag;
 using Content.Shared.Timing;
+using Content.Shared.UserInterface;
 using Robust.Server.GameObjects;
 using Robust.Shared.Collections;
+using Robust.Shared.Containers;
 using Robust.Shared.GameStates;
 using Robust.Shared.Map;
-using Robust.Shared.Utility;
-using Content.Shared.UserInterface;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Utility;
 
 namespace Content.Server.Shuttles.Systems;
 
@@ -153,6 +160,7 @@ public sealed partial class ShuttleConsoleSystem : SharedShuttleConsoleSystem
     [Dependency] private readonly TagSystem _tags = default!;
     [Dependency] private readonly UserInterfaceSystem _ui = default!;
     [Dependency] private readonly SharedContentEyeSystem _eyeSystem = default!;
+    [Dependency] private readonly ItemSlotsSystem _itemSlots = default!;
 
     [Dependency] private readonly _Lavaland.Shuttles.Systems.DockingConsoleSystem _dockingConsole = default!; // Lavaland Change: FTL
 
@@ -171,6 +179,9 @@ public sealed partial class ShuttleConsoleSystem : SharedShuttleConsoleSystem
         _xformQuery = GetEntityQuery<TransformComponent>();
 
         InitializeNf(); // Frontier
+
+        SubscribeLocalEvent<ShuttleConsoleComponent, EntInsertedIntoContainerMessage>(OnItemSlotEvent);
+        SubscribeLocalEvent<ShuttleConsoleComponent, EntRemovedFromContainerMessage>(OnItemSlotEvent);
 
         SubscribeLocalEvent<ShuttleConsoleComponent, ComponentShutdown>(OnConsoleShutdown);
         SubscribeLocalEvent<ShuttleConsoleComponent, PowerChangedEvent>(OnConsolePowerChange);
@@ -200,6 +211,28 @@ public sealed partial class ShuttleConsoleSystem : SharedShuttleConsoleSystem
         SubscribeLocalEvent<FTLDestinationComponent, ComponentShutdown>(OnFtlDestShutdown);
 
         InitializeFTL();
+    }
+
+    private void OnItemSlotEvent(EntityUid uid, ShuttleConsoleComponent component, ContainerModifiedMessage args)
+    {
+        if (!TryComp<AiRemoteBrainComponent>(args.Entity, out AiRemoteBrainComponent? brain))
+            return;
+        if (!_itemSlots.TryGetSlot(uid, "airemote", out var slot))
+            return;
+        if (slot.Item == null)
+        {
+            RemComp<AiRemoteControllerComponent>(uid);
+            RemComp<StationAiWhitelistComponent>(uid);
+            RemComp<StationAiVisionComponent>(uid);
+            return;
+        }
+        else
+        {
+            EnsureComp<AiRemoteControllerComponent>(uid);
+            EnsureComp<StationAiWhitelistComponent>(uid);
+            EnsureComp<StationAiVisionComponent>(uid, out StationAiVisionComponent vision);
+            return;
+        }
     }
 
     private void OnFtlDestStartup(EntityUid uid, FTLDestinationComponent component, ComponentStartup args)
@@ -266,7 +299,6 @@ public sealed partial class ShuttleConsoleSystem : SharedShuttleConsoleSystem
         {
             return;
         }
-
         RemovePilot(args.Actor);
     }
 

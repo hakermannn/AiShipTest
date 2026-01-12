@@ -6,18 +6,30 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+using Content.Goobstation.Common.Stunnable;
 using Content.Server.Radio.Components;
+using Content.Server.Shuttles.Components;
 using Content.Server.Silicons.Laws;
 using Content.Shared._CorvaxNext.Silicons.Borgs;
 using Content.Shared._CorvaxNext.Silicons.Borgs.Components;
 using Content.Shared.Actions;
+using Content.Shared.Audio.Jukebox;
+using Content.Shared.Containers.ItemSlots;
+using Content.Shared.Interaction;
 using Content.Shared.Mind;
+using Content.Shared.Robotics;
+using Content.Shared.Shuttles.Components;
 using Content.Shared.Silicons.Laws.Components;
 using Content.Shared.Silicons.StationAi;
 using Content.Shared.StationAi;
+using Content.Shared.Tag;
+using Content.Shared.Telephone;
+using Content.Shared.UserInterface;
 using Content.Shared.Verbs;
+using JetBrains.FormatRipper.Elf;
 using Robust.Server.GameObjects;
 using Robust.Shared.Player;
+using Robust.Shared.Prototypes;
 
 namespace Content.Server._CorvaxNext.Silicons.Borgs;
 
@@ -29,6 +41,11 @@ public sealed class AiRemoteControlSystem : SharedAiRemoteControlSystem
     [Dependency] private readonly SharedMindSystem _mind = default!;
     [Dependency] private readonly UserInterfaceSystem _userInterface = default!;
     [Dependency] private readonly SharedTransformSystem _xformSystem = default!;
+    [Dependency] private readonly SharedInteractionSystem _interaction = default!;
+    [Dependency] private readonly ItemSlotsSystem _itemSlots = default!;
+    [Dependency] private readonly TagSystem _tags = default!;
+
+    private static readonly ProtoId<TagPrototype> CanPilotTag = "CanPilot";
 
     public override void Initialize()
     {
@@ -116,6 +133,21 @@ public sealed class AiRemoteControlSystem : SharedAiRemoteControlSystem
                 activeRadio.Channels = [.. stationAiActiveRadio.Channels];
         }
 
+        if (TryComp<ShuttleConsoleComponent>(entity, out ShuttleConsoleComponent? comp))
+        {
+            if (!_stationAiSystem.TryGetCore(ai, out var core) || core.Comp?.RemoteEntity == null)
+            {
+                return;
+            }
+            // Known Issue, ai user does not have pilot tag by default,
+            // If interacting with a shuttle console without taking control of it first will result in being kicked out of the console
+            _tags.AddTag(ai, CanPilotTag);
+            _xformSystem.SetWorldPosition(core.Comp.RemoteEntity.Value, _xformSystem.GetWorldPosition(entity));
+            _interaction.InteractionActivate(ai, entity);
+            stationAiHeldComp.CurrentConnectedEntity = entity;
+            return;
+        }
+
         _mind.ControlMob(ai, entity);
         aiRemoteComp.AiHolder = ai;
         aiRemoteComp.LinkedMind = mindId;
@@ -126,10 +158,8 @@ public sealed class AiRemoteControlSystem : SharedAiRemoteControlSystem
             return;
 
         _stationAiSystem.SwitchRemoteEntityMode(stationAiCore, false);
-
         RewriteLaws(ai, entity);
     }
-
     private void OnToggleRemoteDevicesScreen(EntityUid uid, StationAiHeldComponent component, ToggleRemoteDevicesScreenEvent args)
     {
         if (args.Handled || !TryComp<ActorComponent>(uid, out var actor))
